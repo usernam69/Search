@@ -10,8 +10,6 @@
 
 #include <windows.h>
 #include <gdiplus.h>
-#include <wrl.h>
-#include <WebView2.h>
 
 #include <memory>
 #include <set>
@@ -73,15 +71,17 @@ public:
 
     LRESULT handle(UINT message, WPARAM w, LPARAM l);
 
-    // Called by a tab's page, and by the environment's callback.
+    // Called by the engine when a tab's browser has work for the window.
     void makeWebView(Tab* tab);
-    void wire(Tab* tab);
     void attach(Tab* tab);
     void pageTitleChanged(Tab* tab, const std::wstring& title);
     void pageURLChanged(Tab* tab, const std::wstring& url);
     void pageLoading(Tab* tab, bool loading);
     void pageHistory(Tab* tab, bool canBack, bool canForward);
     void pageCrashed(Tab* tab);
+
+    // A message from one of the app's own pages, sent through the JS bridge.
+    void runInternalAction(const std::wstring& url);
 
 private:
     void detach(Tab* tab);
@@ -118,7 +118,6 @@ private:
     void updateSuggestions();
     void takeSuggestion(int index);
     void submitField();
-    void runInternalAction(const std::wstring& url);
 
     std::vector<Tab*> pinTabs() const;
     std::vector<Tab*> rowTabs() const;

@@ -177,7 +177,7 @@ void BrowserWindow::onMouseUp(int x, int y, int button) { (void)x, (void)y, (voi
 void BrowserWindow::wheel(int x, int y, int delta, bool control) {
     (void)control;
     // Over the column, the wheel walks the rows; over the page, the page has
-    // it, as WebView2 handles its own scrolling.
+    // it, as CEF handles its own scrolling.
     Gdiplus::RectF column(0, 0, lay_.column.Width, (Gdiplus::REAL)height_);
     if (!inside(column, x, y)) return;
     if (delta > 0) {
@@ -392,7 +392,7 @@ bool BrowserWindow::key(int vk, bool control, bool shift, bool alt, bool repeat)
                 return true;
             case 'F':
             case 'K':
-                // Find and the tab switcher are the page's own in WebView2.
+                // Find and the tab switcher are the page's own in CEF.
                 return false;
             default:
                 if (vk >= '1' && vk <= '9') {

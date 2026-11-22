@@ -1,7 +1,6 @@
 #include "App.h"
 
 #include <shlobj.h>
-#include <wrl/event.h>
 
 #include <algorithm>
 
@@ -11,11 +10,10 @@
 #include "Json.h"
 #include "Shield.h"
 #include "Store.h"
+#include "WebView.h"
 #include "Window.h"
 
 #pragma comment(lib, "shlwapi.lib")
-
-using namespace Microsoft::WRL;
 
 // The engines and their templates.
 static const std::vector<Engine> kEngines = {
@@ -44,7 +42,6 @@ const Engine& currentEngine() {
 
 namespace app {
 
-ComPtr<ICoreWebView2Environment> g_environment;
 static std::vector<BrowserWindow*> g_windows;
 static bool g_quitting = false;
 
@@ -77,7 +74,9 @@ void addWindow(BrowserWindow* window) { g_windows.push_back(window); }
 void removeWindow(BrowserWindow* window) {
     g_windows.erase(std::remove(g_windows.begin(), g_windows.end(), window), g_windows.end());
     if (g_windows.empty() && !g_quitting) {
-        PostQuitMessage(0);
+        // The last window is gone; let CEF close its browsers before the
+        // browser process posts its own quit message.
+        engine::shutdown();
     }
 }
 
@@ -91,7 +90,7 @@ void quit(bool askFirst) {
     g_quitting = true;
     auto list = g_windows;
     for (auto* w : list) w->close();
-    PostQuitMessage(0);
+    engine::shutdown();
 }
 
 // ---- settings ----

@@ -6,8 +6,6 @@
 #pragma once
 
 #include <windows.h>
-#include <wrl.h>
-#include <WebView2.h>
 
 #include <string>
 
@@ -34,9 +32,8 @@ struct Tab {
 
     std::wstring pageHost;
 
-    Microsoft::WRL::ComPtr<ICoreWebView2Controller> controller;
-    Microsoft::WRL::ComPtr<ICoreWebView2> webview;
-
+    // The browser itself lives in engine::WebView.cpp; a tab only carries the
+    // page's state. A restored tab has no browser until it is picked.
     std::wstring shownTitle() const;
     std::wstring shownURL() const;
     bool isPinned() const { return !pin.empty(); }
