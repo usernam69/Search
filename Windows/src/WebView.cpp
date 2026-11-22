@@ -45,6 +45,24 @@ std::wstring userDataFolder() {
     return folder;
 }
 
+// The WebView2 runtime is shipped in `runtime` beside Search.exe, so the app
+// never depends on the Edge or WebView2 runtime installed on the PC.
+static std::wstring runtimeFolder() {
+    wchar_t path[MAX_PATH] = {};
+    DWORD used = GetModuleFileNameW(nullptr, path, MAX_PATH);
+    std::wstring exe(path, used ? used : 0);
+    size_t slash = exe.find_last_of(L"\\/");
+    std::wstring base = slash == std::wstring::npos ? L"." : exe.substr(0, slash);
+    std::wstring folder = base + L"\\runtime";
+
+    if (GetFileAttributesW((folder + L"\\msedgewebview2.exe").c_str()) == INVALID_FILE_ATTRIBUTES) {
+        wchar_t msg[512];
+        swprintf(msg, 512, L"Bundled WebView2 runtime is missing: %ls", folder.c_str());
+        store::log(msg);
+    }
+    return folder;
+}
+
 void ensureEnvironment(Ready done) {
     if (g_ready) {
         done(true);
@@ -64,12 +82,14 @@ void ensureEnvironment(Ready done) {
     // Microsoft telemetry from the browser itself.
     options->put_AdditionalBrowserArguments(L"--disable-features=msEdgeSplashScreen --no-first-run");
     std::wstring folder = userDataFolder();
-    HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(nullptr, folder.c_str(), options.Get(),
+    std::wstring runtime = runtimeFolder();
+    HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(runtime.c_str(), folder.c_str(), options.Get(),
                                                           Make<EnvHandler>().Get());
     if (FAILED(hr)) {
         wchar_t msg[512];
-        swprintf(msg, 512, L"CreateCoreWebView2EnvironmentWithOptions failed: 0x%08lx folder=%ls",
-                 (unsigned long)hr, folder.c_str());
+        swprintf(msg, 512,
+                 L"CreateCoreWebView2EnvironmentWithOptions failed: 0x%08lx runtime=%ls folder=%ls",
+                 (unsigned long)hr, runtime.c_str(), folder.c_str());
         store::log(msg);
         g_failed = true;
         auto waiting = g_waiting;

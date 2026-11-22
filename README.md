@@ -9,9 +9,9 @@ the page as a card beside it. There is no toolbar, no start page, no sidebar of
 suggestions, no account to sign into, nothing that wants your attention. You
 type an address or a few words in one field and you are on the page.
 
-It uses **WebView2**, the engine already inside Windows (it is what Microsoft
-Edge runs on). That is why there is no second copy of a browser engine to
-download, update and keep in memory.
+It uses **WebView2**, the Chromium engine that Microsoft Edge also uses, but
+carries its own fixed copy of that runtime. Nothing has to be installed on the
+PC first: the app and its runtime ship together.
 
 ## What it does
 
@@ -40,7 +40,8 @@ cd Windows
 build.bat
 ```
 
-It fetches the WebView2 SDK on first use and writes `build\Search.exe`. See
+It fetches the WebView2 SDK and runtime on first use and writes
+`build\Search.exe` plus a `build\runtime` folder. Ship both. See
 [Windows/README.md](Windows/README.md) for what it does, the shortcuts, and how
 the sources are laid out.
 

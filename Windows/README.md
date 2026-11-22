@@ -2,8 +2,8 @@
 
 A small, fast, quiet web browser: a column of tabs down the left, the page as a
 card beside it, and one field for an address or a few words. It is C++20 with
-Win32, GDI+ and Microsoft WebView2 — the Edge engine Windows already has — so
-there is no runtime to install.
+Win32 and GDI+ for the app, and its own bundled WebView2 runtime for pages — no
+browser, runtime, or installer has to be present on the PC.
 
 ## Build
 
@@ -11,21 +11,24 @@ Needs:
 
 - Visual Studio 2022 Build Tools with the C++ workload (MSVC 14.4x, Windows
   SDK 10.0.26100 or newer).
-- PowerShell and `curl`, which `build.bat` uses to fetch the WebView2 SDK.
+- PowerShell, which `build.bat` uses to fetch the WebView2 SDK and runtime.
+  The fixed-version runtime is a ~418 MB download that expands to ~945 MB, and
+  is fetched only once.
 
 ```bat
 cd Windows
 build.bat
 ```
 
-It downloads the WebView2 NuGet package into `build\webview2` on first use,
-compiles the fourteen sources in `src`, and writes `build\Search.exe`. Add
-`clean` to remove `build\obj` first.
+It downloads the WebView2 SDK into `build\webview2` and the fixed-version
+runtime into `build\runtime` on first use, compiles the fourteen sources in
+`src`, and writes `build\Search.exe`. Ship `Search.exe` together with the whole
+`runtime` folder; the app finds it beside itself and does not look at the
+machine's Edge or WebView2 install. A second launch brings the first window
+forward instead of opening a second one.
 
-`Search.exe` needs the WebView2 Runtime, which is part of Windows 11 and comes
-with Microsoft Edge on Windows 10. It is started from the Start menu or from a
-link; a second launch brings the first window forward instead of opening a
-second one.
+The runtime is fixed, so it does not update itself. A new Search build carries
+a new runtime; ship that folder with the update to pick up browser fixes.
 
 ## What it does
 
@@ -107,7 +110,8 @@ bookmarks bar, reader mode, split view and extensions.
 
 ```
 Windows/
-  build.bat          fetch WebView2, compile, link
+  build.bat          fetch WebView2 SDK + runtime, compile, link
+  build\runtime\     the bundled WebView2 runtime, shipped with Search.exe
   make-icon.py       draw src/search.ico from the logomark's path
   src/Address.*      what a typed address means
   src/App.*          the engines, the settings, the app's windows
