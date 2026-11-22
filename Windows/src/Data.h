@@ -1,6 +1,6 @@
 // Where you have been, what you kept, and what was open last time — the three
 // small files the field finishes addresses from and the session comes back
-// from. Their shapes are the Mac's, so a history file copied across reads.
+// from.
 #pragma once
 
 #include <ctime>
@@ -41,7 +41,7 @@ struct Session {
 namespace history {
 std::vector<Visit> read();
 void write(const std::vector<Visit>& visits);
-// A visit is written a moment after it happens, as on the Mac, rather than on
+// A visit is written a moment after it happens rather than on
 // every keystroke. `note` merges one visit into the list it keeps in memory.
 void note(const std::wstring& url, const std::wstring& title);
 void flush();

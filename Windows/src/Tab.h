@@ -2,7 +2,7 @@
 //
 // A tab restored from last session costs nothing until it is picked: it is a
 // row and an address, and the page is made when it is first shown. That is
-// most of why launching with twenty tabs is still instant, as on the Mac.
+// most of why launching with twenty tabs is still instant.
 #pragma once
 
 #include <windows.h>

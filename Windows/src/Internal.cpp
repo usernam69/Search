@@ -132,8 +132,8 @@ button:hover { background: )HTML" + hex(p.hover) + LR"HTML(; }
 }
 
 static std::wstring newTabPage() {
-    // The Mac has no start page: a new tab is empty, and the field is where
-    // you type. This one is the same, with the shortcuts the Mac prints.
+    // There is no start page: a new tab is empty, and the field is where you
+    // type. This one is the same, with the shortcuts listed.
     std::wstring body;
     body += L"<h1>Search</h1>";
     body += L"<p class=\"lede\">Type an address or a few words above.</p>";

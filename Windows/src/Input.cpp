@@ -1,6 +1,6 @@
 // What the pointer and the keys do: the column's rows and pins, the three
 // doors, the caption buttons, the field and its suggestions, and the
-// shortcuts the Mac prints on its New Tab page.
+// shortcuts the New Tab page lists.
 #include "Window.h"
 
 #include <shellapi.h>
@@ -150,7 +150,7 @@ void BrowserWindow::onMouseDown(int x, int y, int button, int clicks) {
             return;
         }
         if (clicks == 2) {
-            // A double-click on a tab names it, as the Mac's row does with its
+            // A double-click on a tab names it, as a row does with its
             // own menu; here it is the simplest way to rename one.
             Tab* tab = rows[i];
             wchar_t buf[512];
@@ -327,7 +327,7 @@ bool BrowserWindow::key(int vk, bool control, bool shift, bool alt, bool repeat)
         if (control && vk == 'L') return true;
     }
 
-    // The shortcuts, as the Mac has them with Ctrl where the Mac has ⌘.
+    // The shortcuts, all on Ctrl.
     if (control && !alt) {
         switch (vk) {
             case 'T':
@@ -382,7 +382,7 @@ bool BrowserWindow::key(int vk, bool control, bool shift, bool alt, bool repeat)
                 return true;
             case 'N':
                 if (shift) {
-                    // A window of its own, as ⌘N gives on the Mac.
+                    // A window of its own.
                     extern void newWindow();
                     newWindow();
                 }
@@ -404,7 +404,7 @@ bool BrowserWindow::key(int vk, bool control, bool shift, bool alt, bool repeat)
         }
     }
 
-    // Alt+Left and Alt+Right go back and forward, as on the Mac's ⌘[ and ⌘].
+    // Alt+Left and Alt+Right go back and forward, as most browsers do.
     if (alt && vk == VK_LEFT) {
         goBack();
         return true;

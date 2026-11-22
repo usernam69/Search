@@ -1,15 +1,9 @@
-# Build output — build.sh regenerates all of this.
-.build/
+# What the build makes: the compiler's own output, and the WebView2 SDK
+# `Windows/build.bat` fetches on first use.
 build/
-.swiftpm/
-*.xcuserstate
-.DS_Store
+Windows/build/
 
-# Python's bytecode cache, left in Tests/ by the probe scripts.
+# Python's bytecode cache, left by `Windows/make-icon.py`.
 __pycache__/
 
-# Signing material that's tied to one Apple Developer account and should
-# never be committed, even though the scripts happily run without it.
-*.provisionprofile
-*.p12
-*.mobileprovision
+.DS_Store

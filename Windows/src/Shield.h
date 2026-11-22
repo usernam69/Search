@@ -1,11 +1,10 @@
 // The ad blocker. No settings, no counter, no shield icon going green — it is
 // simply true that the page is lighter.
 //
-// On the Mac this is a content rule list enforced inside WebKit's networking.
-// Here it is WebView2's WebResourceRequested, which is answered before the
-// request leaves the browser, plus a stylesheet put into each page at document
-// start so the empty boxes an ad leaves behind never draw. The lists are
-// Shield.swift's own.
+// It is enforced at the network level, before anything is rendered: WebView2's
+// WebResourceRequested, which is answered before the request leaves the
+// browser, plus a stylesheet put into each page at document start so the empty
+// boxes an ad leaves behind never draw.
 #pragma once
 
 #include <windows.h>

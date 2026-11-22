@@ -1,4 +1,0 @@
-# What `build.bat` makes: the compiler's own output and the WebView2 SDK it
-# fetches. The exe and the icon are kept.
-build/obj/
-build/webview2/

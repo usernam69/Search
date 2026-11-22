@@ -1,5 +1,5 @@
 // A small JSON reader and writer. The settings, History, bookmarks and the
-// session are small JSON files, as they are on the Mac, and this is all the
+// session are small JSON files, and this is all the
 // JSON the app needs to read and write them.
 #pragma once
 

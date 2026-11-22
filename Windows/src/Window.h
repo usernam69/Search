@@ -3,7 +3,7 @@
 // nothing else to press.
 //
 // Windows' own caption is not drawn. The column's band takes the title bar's
-// place, with back, forward and reload where the Mac has them, and the
+// place, with back, forward and reload at the top of the column, and the
 // system's minimise, maximise and close are drawn at the top right where
 // Windows puts them, faint until the pointer comes near.
 #pragma once

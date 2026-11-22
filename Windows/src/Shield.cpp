@@ -160,10 +160,10 @@ std::wstring styleFor(const std::wstring& pageHost) {
     return css;
 }
 
-// In the page's own world, before any of its scripts. Ported from
-// YouTubeAds.swift: YouTube announces its ads in the player's own data, so the
-// ad schedule is taken out of that data before the player reads it. Nothing
-// else is touched; an answer of any other shape is handed on as it came.
+// In the page's own world, before any of its scripts. YouTube announces its
+// ads in the player's own data, so the ad schedule is taken out of that data
+// before the player reads it. Nothing else is touched; an answer of any other
+// shape is handed on as it came.
 static const wchar_t* kYouTubePage = LR"JS(
 (function () {
   'use strict';

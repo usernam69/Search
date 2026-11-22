@@ -1,6 +1,6 @@
-// The environment every tab's web view is made in: WebView2's own browser
-// process, its profile kept in the app's folder, and the loader that lets a
-// tab ask for one.
+// The environment every tab's web view is made in: the WebView2 runtime
+// bundled beside the app, its profile kept in the app's own folder, and the
+// loader that lets a tab ask for one.
 #pragma once
 
 #include <windows.h>

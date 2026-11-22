@@ -80,7 +80,7 @@ Tab* BrowserWindow::addInternalPage(const std::wstring& page, bool background) {
 
 void BrowserWindow::openInternalPage(const std::wstring& page) {
     // One tab of each kind per window: asking again goes to the one already
-    // open, as on the Mac.
+    // open.
     std::wstring path = internalPath(page);
     for (size_t i = 0; i < tabs_.size(); ++i) {
         if (tabs_[i]->internal == path) {
@@ -107,7 +107,7 @@ void BrowserWindow::closeTab(int index) {
     if (index < 0 || index >= (int)tabs_.size()) return;
     Tab* tab = tabs_[index].get();
 
-    // A closed tab can come back with Ctrl+Shift+T, as on the Mac.
+    // A closed tab can come back with Ctrl+Shift+T.
     if (!tab->isInternal() && !tab->url.empty()) {
         auto closed = session::readClosed();
         closed.push_back({tab->url, tab->shownTitle(), index});
@@ -367,7 +367,7 @@ void BrowserWindow::wire(Tab* tab) {
             .Get(),
         &token);
 
-    // A link that wants a new window gets a tab, as on the Mac.
+    // A link that wants a new window gets a tab.
     web->add_NewWindowRequested(
         handler<ICoreWebView2NewWindowRequestedEventHandler>(
             std::function<void(ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs*)>(

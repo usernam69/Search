@@ -133,7 +133,7 @@ bool BrowserWindow::create(bool restore) {
     }
 
     // No caption: the app draws the band where the title bar would be, as the
-    // Mac's window has none. The frame stays, so resizing, snapping, Alt+Space
+    // band where the title bar would be. The frame stays, so resizing, snapping, Alt+Space
     // and the shadow all still work.
     hwnd_ = CreateWindowExW(WS_EX_APPWINDOW, kWindowClass, L"Search",
                             WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU |
@@ -295,7 +295,7 @@ LRESULT BrowserWindow::handle(UINT message, WPARAM w, LPARAM l) {
                 if (p.x >= width_ - border) return HTRIGHT;
             }
             // The band at the top, where there is nothing to press, drags the
-            // window, as the Mac's title bar does.
+            // window, as a title bar does.
             Gdiplus::RectF band(lay_.column.Width, 0, (Gdiplus::REAL)(width_ - lay_.column.Width),
                                 (Gdiplus::REAL)g_theme.px(metrics::strip));
             if (band.Contains((Gdiplus::REAL)p.x, (Gdiplus::REAL)p.y)) {

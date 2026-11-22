@@ -1,17 +1,16 @@
-# The app's icon, drawn rather than exported — the same way Icon/icon.swift
-# does it for the Mac build: Drice's Subtract.svg, read from its own path data
-# so the mark stays crisp at every size instead of a raster scaled up.
+# The app's icon, drawn rather than exported: Drice's Subtract.svg, read from
+# its own path data so the mark stays crisp at every size instead of a raster
+# scaled up.
 #
 # A Windows .ico holds several sizes in one file, so each is drawn at its own
-# size: the pill and the S it has cut out of it, on the plate macOS gives it.
+# size: the pill and the S it has cut out of it, on its plate.
 #
 #   python make-icon.py            writes src/search.ico
 
 from PIL import Image, ImageDraw
 import os, re
 
-# Drice's Subtract.svg (22 September 2026), the same string as in
-# Icon/icon.swift and Design.swift's Logomark.
+# Drice's Subtract.svg (22 September 2026): the logomark's own path.
 MARK = (
     "M469.443 0C545.471 0.00013198 607.103 61.6325 607.104 137.66"
     "C607.104 213.688 545.471 275.321 469.443 275.321H137.66"
@@ -109,13 +108,13 @@ def draw(size):
     img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    # macOS puts the plate inside a rounded square with air around it; Windows
-    # icons fill more of their box, so the air is smaller here.
+    # The plate sits inside a rounded square with air around it. Windows icons
+    # fill more of their box, so the air is small.
     plate = W * 0.92
     off = (W - plate) / 2
     d.rounded_rectangle([off, off, off + plate, off + plate], radius=plate * 0.22, fill=(255, 255, 255, 255))
 
-    # The mark, scaled to sit in the plate the way the Mac's does.
+    # The mark, scaled to sit in the plate.
     mark_w = plate * 0.74
     scale = mark_w / CANVAS[0]
     mark_h = CANVAS[1] * scale

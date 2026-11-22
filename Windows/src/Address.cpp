@@ -25,7 +25,7 @@ static bool allDigits(const std::wstring& s) {
     return std::all_of(s.begin(), s.end(), [](wchar_t c) { return c >= L'0' && c <= L'9'; });
 }
 
-// Splits on `sep`, keeping empty pieces: the Mac's
+// Splits on `sep`, keeping empty pieces, so that
 // split(omittingEmptySubsequences: false).
 static std::vector<std::wstring> split(const std::wstring& s, wchar_t sep) {
     std::vector<std::wstring> out;
@@ -187,7 +187,7 @@ std::optional<std::wstring> fileFrom(const std::wstring& typed) {
     std::wstring text = trim(typed);
     if (text.empty()) return std::nullopt;
     // A drive letter, a UNC path, or anything with a separator in it: a path
-    // rather than a host. A word with a dot in it is a host, as on the Mac.
+    // rather than a host. A word with a dot in it is a host.
     bool pathish = (text.size() >= 3 && std::iswalpha(text[0]) && text[1] == L':' &&
                     (text[2] == L'\\' || text[2] == L'/')) ||
                    text.rfind(L"\\\\", 0) == 0 || text.rfind(L"//", 0) == 0;
