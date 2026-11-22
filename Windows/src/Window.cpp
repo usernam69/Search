@@ -9,7 +9,6 @@
 #include <dwmapi.h>
 #include <shellapi.h>
 #include <shlwapi.h>
-#include <wrl/event.h>
 
 #include <algorithm>
 #include <cmath>
@@ -26,8 +25,6 @@
 
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "shlwapi.lib")
-
-using namespace Microsoft::WRL;
 
 static const wchar_t* kWindowClass = L"SearchBrowserWindow";
 
@@ -155,15 +152,6 @@ bool BrowserWindow::create(bool restore) {
 
     applyTheme();
 
-    wv2::ensureEnvironment([this](bool ok) {
-        if (!alive(this)) return;
-        if (!ok) {
-            store::log(L"environment not ready");
-            return;
-        }
-        if (Tab* tab = active(); tab && !tab->controller) makeWebView(tab);
-    });
-
     if (restore) {
         Session shape = session::read();
         for (auto& entry : shape.tabs) {
@@ -190,13 +178,16 @@ bool BrowserWindow::create(bool restore) {
 void BrowserWindow::showAndFocus() {
     ShowWindow(hwnd_, SW_SHOW);
     SetForegroundWindow(hwnd_);
-    if (Tab* tab = active(); tab && tab->webview) {
-        tab->controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+    if (Tab* tab = active(); tab && engine::has(tab)) {
+        engine::focus(tab);
     }
 }
 
 void BrowserWindow::close() {
     writeSession();
+    // Ask every browser to close while its parent still exists, then let the
+    // engine finish CEF shutdown after the message loop has drained them.
+    for (auto& tab : tabs_) engine::destroy(tab.get());
     DestroyWindow(hwnd_);
 }
 
@@ -213,7 +204,7 @@ void BrowserWindow::applyThemeNow() {
 
 void BrowserWindow::reloadShield() {
     for (auto& tab : tabs_) {
-        if (tab->webview) tab->webview->Reload();
+        if (engine::has(tab.get())) engine::reload(tab.get());
     }
 }
 
@@ -403,8 +394,8 @@ LRESULT BrowserWindow::handle(UINT message, WPARAM w, LPARAM l) {
         }
 
         case WM_SETFOCUS:
-            if (Tab* tab = active(); tab && tab->webview && !fieldFocused_) {
-                tab->controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+            if (Tab* tab = active(); tab && engine::has(tab) && !fieldFocused_) {
+                engine::focus(tab);
             }
             return 0;
 

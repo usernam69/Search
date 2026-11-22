@@ -5,7 +5,6 @@
 #include <gdiplus.h>
 #include <shellapi.h>
 #include <shlobj.h>
-#include <wrl.h>
 
 #include <algorithm>
 #include <set>
@@ -18,11 +17,10 @@
 #include "Shield.h"
 #include "Store.h"
 #include "Theme.h"
+#include "WebView.h"
 #include "Window.h"
 
 #pragma comment(lib, "dwmapi.lib")
-
-using namespace Microsoft::WRL;
 
 static std::set<BrowserWindow*> g_live;
 std::set<BrowserWindow*>& liveWindows() { return g_live; }
@@ -87,7 +85,7 @@ void BrowserWindow::runInternalAction(const std::wstring& text) {
 
     // The page is redrawn so the switch it just flipped shows its new state.
     if (Tab* tab = active(); tab && tab->isInternal()) {
-        if (tab->webview) tab->webview->NavigateToString(internalHTML(tab->internal).c_str());
+        engine::loadHTML(tab, internalHTML(tab->internal), internalURL(tab->internal));
     }
     relayout();
 }
@@ -113,6 +111,12 @@ static void newWindowNow(bool restore) {
 void newWindow() { newWindowNow(false); }
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+    // Chromium's helper processes re-enter here before there is any window.
+    // They belong to CEF, not to the browser, and must run before our
+    // single-instance mutex — otherwise they look like a second app launch.
+    int childExit = 0;
+    if (engine::preMain(instance, &childExit)) return childExit;
+
     // One copy at a time: a second launch brings the first
     // forward rather than opening a second window.
     HANDLE one = CreateMutexW(nullptr, TRUE, L"Search.Browser.Single");
@@ -121,7 +125,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             ShowWindow(existing, SW_RESTORE);
             SetForegroundWindow(existing);
         }
-        return 0;
+        engine::shutdown();
+        return engine::exitCode();
+    }
+
+    if (!engine::initialize(instance)) {
+        MessageBoxW(nullptr, L"Unable to start the browser engine. The CEF files may be missing from this folder.",
+                    L"Search", MB_ICONERROR | MB_OK);
+        return engine::exitCode();
     }
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -154,10 +165,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0)) {
+        // CEF has work to do between Windows messages even when the UI is
+        // idle. It must be driven here, on the same thread that created it.
+        engine::pump();
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
 
     if (g_gdiplus) Gdiplus::GdiplusShutdown(g_gdiplus);
-    return 0;
+    engine::shutdown();
+    return engine::exitCode();
 }

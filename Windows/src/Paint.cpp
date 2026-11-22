@@ -92,7 +92,7 @@ void BrowserWindow::layout() {
                        (REAL)fieldW, (REAL)fieldH);
 
     // The field and its suggestions are the window's own painting, and the page
-    // is WebView2's surface, composited above the window. So while the field is
+    // is CEF's child window, composited above the window. So while the field is
     // up the page steps down below it, and comes back up when it goes.
     if (fieldShown_) {
         RectF area = fieldArea();
@@ -211,7 +211,7 @@ void BrowserWindow::paintPage(Gdiplus::Graphics& g) {
     // A page that hasn't woken yet, or one that crashed, says so on the card.
     Tab* tab = active();
     if (!tab) return;
-    if (!tab->controller) {
+    if (!engine::has(tab)) {
         std::wstring text = tab->asleep ? L"Waiting to be picked" : L"Opening…";
         draw::text(g, text, g_theme.field, p.muted, lay_.page, 2, false);
     } else if (tab->crashed) {

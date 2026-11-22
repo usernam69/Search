@@ -1,48 +1,21 @@
-// The tabs and their pages: making a web view when a tab is first shown,
-// wiring what the page says back into the row, and the session that comes
-// back at launch.
+// The tabs and their pages: making a browser when a tab is first shown,
+// handling what the page says back in the row, and the session that comes
+// back at launch. Everything that speaks CEF lives in WebView.cpp.
 #include "Window.h"
 
 #include <shlwapi.h>
-#include <wrl/event.h>
 
 #include <algorithm>
 #include <functional>
 #include <set>
 
 #include "Address.h"
-#include "Com.h"
 #include "App.h"
 #include "Data.h"
 #include "Internal.h"
 #include "Shield.h"
 #include "Store.h"
 #include "WebView.h"
-
-using namespace Microsoft::WRL;
-
-static bool alive(BrowserWindow* window) { return liveWindows().count(window) > 0; }
-
-class ControllerHandler : public RuntimeClass<RuntimeClassFlags<ClassicCom>,
-                                             ICoreWebView2CreateCoreWebView2ControllerCompletedHandler> {
-public:
-    BrowserWindow* window = nullptr;
-    Tab* tab = nullptr;
-
-    STDMETHODIMP Invoke(HRESULT result, ICoreWebView2Controller* controller) override {
-        if (!tab || !window || !alive(window)) return S_OK;
-        if (FAILED(result) || !controller) {
-            { wchar_t m[160]; swprintf(m,160,L"controller failed: 0x%08lx", (unsigned long)result); store::log(m); }
-            tab->crashed = true;
-            window->relayout();
-            return S_OK;
-        }
-        tab->controller = controller;
-        controller->get_CoreWebView2(&tab->webview);
-        window->wire(tab);
-        return S_OK;
-    }
-};
 
 // ---- tabs ----
 
@@ -137,7 +110,7 @@ void BrowserWindow::closeTab(int index) {
 
 void BrowserWindow::selectTab(int index) {
     if (index < 0 || index >= (int)tabs_.size()) return;
-    if (index == active_ && tabs_[index]->controller) {
+    if (index == active_ && engine::has(tabs_[index].get())) {
         attach(tabs_[index].get());
         return;
     }
@@ -148,7 +121,7 @@ void BrowserWindow::selectTab(int index) {
     // A tab restored from last session costs nothing until it is picked: this
     // is where it wakes, with the page it was left on.
     tab->asleep = false;
-    if (!tab->controller) {
+    if (!engine::has(tab)) {
         makeWebView(tab);
     } else {
         attach(tab);
@@ -182,319 +155,46 @@ void BrowserWindow::reopenClosedTab() {
 
 void BrowserWindow::makeWebView(Tab* tab) {
     if (!tab) return;
-    if (!wv2::environment()) {
-        // The environment is still being made; it asks for the tab again when
-        // it is ready.
-        wv2::ensureEnvironment([this](bool ok) {
-            if (!alive(this) || !ok) return;
-            if (Tab* front = active(); front && !front->controller) makeWebView(front);
-        });
-        return;
+    std::wstring url = tab->isInternal() ? internalURL(tab->internal) : tab->url;
+    if (!engine::create(tab, hwnd_, url)) {
+        wchar_t msg[256];
+        swprintf(msg, 256, L"CEF could not create a browser for %ls", url.c_str());
+        store::log(msg);
+        tab->crashed = true;
+        relayout();
     }
-
-    ComPtr<ControllerHandler> done = Make<ControllerHandler>();
-    done->window = this;
-    done->tab = tab;
-
-    ComPtr<ICoreWebView2Environment10> env10;
-    wv2::environment().As(&env10);
-    if (env10) {
-        ComPtr<ICoreWebView2ControllerOptions> options;
-        if (SUCCEEDED(env10->CreateCoreWebView2ControllerOptions(&options)) && options) {
-            options->put_IsInPrivateModeEnabled(FALSE);
-            env10->CreateCoreWebView2ControllerWithOptions(hwnd_, options.Get(), done.Get());
-            return;
-        }
-    }
-    wv2::environment()->CreateCoreWebView2Controller(hwnd_, done.Get());
 }
 
 void BrowserWindow::attach(Tab* tab) {
-    if (!tab || !tab->controller) return;
-    tab->controller->put_IsVisible(TRUE);
+    if (!tab || !engine::has(tab)) return;
+    engine::setVisible(tab, true);
     updateWebViewBounds();
-    
 }
 
 void BrowserWindow::detach(Tab* tab) {
-    if (tab && tab->controller) tab->controller->put_IsVisible(FALSE);
+    if (tab && engine::has(tab)) engine::setVisible(tab, false);
 }
 
 void BrowserWindow::killWebView(Tab* tab) {
-    if (!tab || !tab->controller) return;
-    tab->controller->Close();
-    tab->controller.Reset();
-    tab->webview.Reset();
+    if (tab && engine::has(tab)) engine::destroy(tab);
 }
 
 void BrowserWindow::updateWebViewBounds() {
     Tab* tab = active();
-    if (!tab || !tab->controller) return;
-    RECT page;
+    if (!tab || !engine::has(tab)) return;
+
+    RECT page{};
     page.left = (LONG)lay_.page.X;
     page.top = (LONG)lay_.page.Y;
     page.right = (LONG)(lay_.page.X + lay_.page.Width);
     page.bottom = (LONG)(lay_.page.Y + lay_.page.Height);
-    tab->controller->put_Bounds(page);
 
-    // The page is a card with its corners round, and the caption buttons sit
-    // over its top right. WebView2's own window is a plain rectangle, so the
-    // corners and the caption are cut out of it. It is a child of the browser
-    // window, and the only child it has, so it is found rather than assumed:
-    // the controller hands back the window it was given, not the one it made.
-    HWND host = nullptr;
-    EnumChildWindows(
-        hwnd_,
-        [](HWND child, LPARAM found) -> BOOL {
-            // The web view makes two windows of that class: an empty one that
-            // holds nothing, and the one the page is drawn in. It is the one
-            // with a size that is cut.
-            wchar_t name[64] = {};
-            GetClassNameW(child, name, 64);
-            if (wcsncmp(name, L"Chrome_WidgetWin", 16) != 0) return TRUE;
-            RECT box{};
-            GetWindowRect(child, &box);
-            if (box.right - box.left < 2 || box.bottom - box.top < 2) return TRUE;
-            *(HWND*)found = child;
-            return FALSE;
-        },
-        (LPARAM)&host);
-    if (!host) return;
-
-    int radius = g_theme.px(metrics::cardRadius);
-    HRGN region = CreateRoundRectRgn(0, 0, page.right - page.left + 1, page.bottom - page.top + 1, radius * 2,
-                                     radius * 2);
-    if (!lay_.caption.empty()) {
-        const Gdiplus::RectF& last = lay_.caption.back();
-        HRGN corner = CreateRectRgn((int)last.X - page.left, 0, (int)(last.GetRight()) - page.left,
-                                    (int)last.GetBottom());
-        CombineRgn(region, region, corner, RGN_DIFF);
-        DeleteObject(corner);
+    std::vector<RECT> caption;
+    for (const auto& r : lay_.caption) {
+        caption.push_back({(LONG)r.X, (LONG)r.Y, (LONG)r.GetRight(), (LONG)r.GetBottom()});
     }
-
-    // The region goes on the host window, which is the one WebView2 sizes.
-    SetWindowRgn(host, region, TRUE);
-    // The region belongs to the window now.
+    engine::setBounds(tab, page, caption, g_theme.px(metrics::cardRadius));
 }
-
-void BrowserWindow::wire(Tab* tab) {
-    if (!tab || !tab->webview) return;
-    ICoreWebView2* web = tab->webview.Get();
-
-    // Nothing of the browser's own furniture: pages look like pages.
-    ComPtr<ICoreWebView2Settings> settings;
-    if (SUCCEEDED(web->get_Settings(&settings)) && settings) {
-        settings->put_IsStatusBarEnabled(FALSE);
-        settings->put_AreDevToolsEnabled(TRUE);
-        settings->put_AreDefaultContextMenusEnabled(TRUE);
-        settings->put_IsBuiltInErrorPageEnabled(TRUE);
-        settings->put_IsZoomControlEnabled(TRUE);
-        ComPtr<ICoreWebView2Settings3> s3;
-        if (SUCCEEDED(settings.As(&s3)) && s3) s3->put_AreBrowserAcceleratorKeysEnabled(FALSE);
-    }
-
-    EventRegistrationToken token;
-
-    web->add_DocumentTitleChanged(
-        handler<ICoreWebView2DocumentTitleChangedEventHandler>(
-            std::function<void(ICoreWebView2*, IUnknown*)>([this, tab](ICoreWebView2* sender, IUnknown*) {
-                if (!alive(this) || !tab->webview) return;
-                LPWSTR title = nullptr;
-                if (SUCCEEDED(sender->get_DocumentTitle(&title)) && title) {
-                    pageTitleChanged(tab, title);
-                    CoTaskMemFree(title);
-                }
-            }))
-            .Get(),
-        &token);
-
-    web->add_SourceChanged(
-        handler<ICoreWebView2SourceChangedEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2SourceChangedEventArgs*)>(
-                [this, tab](ICoreWebView2* sender, ICoreWebView2SourceChangedEventArgs*) {
-                    if (!alive(this) || !tab->webview) return;
-                    LPWSTR url = nullptr;
-                    if (SUCCEEDED(sender->get_Source(&url)) && url) {
-                        pageURLChanged(tab, url);
-                        CoTaskMemFree(url);
-                    }
-                }))
-            .Get(),
-        &token);
-
-    web->add_NavigationStarting(
-        handler<ICoreWebView2NavigationStartingEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*)>(
-                [this, tab](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) {
-                    if (!alive(this) || !tab->webview) return;
-                    pageLoading(tab, true);
-                }))
-            .Get(),
-        &token);
-
-    web->add_NavigationCompleted(
-        handler<ICoreWebView2NavigationCompletedEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs*)>(
-                [this, tab](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) {
-                    if (!alive(this) || !tab->webview) return;
-                    pageLoading(tab, false);
-                    BOOL success = TRUE;
-                    args->get_IsSuccess(&success);
-                    tab->crashed = !success;
-                    LPWSTR url = nullptr;
-                    if (SUCCEEDED(sender->get_Source(&url)) && url) {
-                        pageURLChanged(tab, url);
-                        CoTaskMemFree(url);
-                    }
-                    BOOL back = FALSE, forward = FALSE;
-                    sender->get_CanGoBack(&back);
-                    sender->get_CanGoForward(&forward);
-                    pageHistory(tab, back != FALSE, forward != FALSE);
-                    if (success && !tab->isInternal()) history::note(tab->url, tab->shownTitle());
-                }))
-            .Get(),
-        &token);
-
-    web->add_HistoryChanged(
-        handler<ICoreWebView2HistoryChangedEventHandler>(
-            std::function<void(ICoreWebView2*, IUnknown*)>([this, tab](ICoreWebView2* sender, IUnknown*) {
-                if (!alive(this) || !tab->webview) return;
-                BOOL back = FALSE, forward = FALSE;
-                sender->get_CanGoBack(&back);
-                sender->get_CanGoForward(&forward);
-                pageHistory(tab, back != FALSE, forward != FALSE);
-            }))
-            .Get(),
-        &token);
-
-    // A link that wants a new window gets a tab.
-    web->add_NewWindowRequested(
-        handler<ICoreWebView2NewWindowRequestedEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs*)>(
-                [this, tab](ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs* args) {
-                    if (!alive(this)) return;
-                    LPWSTR url = nullptr;
-                    args->get_Uri(&url);
-                    args->put_Handled(TRUE);
-                    if (url) {
-                        // A link clicked with Ctrl, or one a page opens by
-                        // itself, comes to the row behind the page.
-                        addTab(url, true);
-                        CoTaskMemFree(url);
-                    }
-                }))
-            .Get(),
-        &token);
-
-    // Shield: a request to an ad or tracker host is answered with nothing,
-    // before it leaves the browser.
-    web->AddWebResourceRequestedFilter(L"*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
-    web->add_WebResourceRequested(
-        handler<ICoreWebView2WebResourceRequestedEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2WebResourceRequestedEventArgs*)>(
-                [this, tab](ICoreWebView2*, ICoreWebView2WebResourceRequestedEventArgs* args) {
-                    if (!alive(this) || !tab) return;
-                    ComPtr<ICoreWebView2WebResourceRequest> request;
-                    args->get_Request(&request);
-                    if (!request) return;
-                    LPWSTR uri = nullptr;
-                    request->get_Uri(&uri);
-                    if (!uri) return;
-                    std::wstring url = uri;
-                    CoTaskMemFree(uri);
-                    if (!shield::shouldBlock(url, tab->pageHost)) return;
-                    auto env = wv2::environment();
-                    if (!env) return;
-                    ComPtr<ICoreWebView2WebResourceResponse> blocked;
-                    env->CreateWebResourceResponse(nullptr, 403, L"Blocked", L"", &blocked);
-                    if (blocked) args->put_Response(blocked.Get());
-                }))
-            .Get(),
-        &token);
-
-    // A page that crashes says so, and can be reloaded.
-    web->add_ProcessFailed(
-        handler<ICoreWebView2ProcessFailedEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2ProcessFailedEventArgs*)>(
-                [this, tab](ICoreWebView2*, ICoreWebView2ProcessFailedEventArgs*) {
-                    if (!alive(this)) return;
-                    pageCrashed(tab);
-                }))
-            .Get(),
-        &token);
-
-    // The app's own pages: what their switches ask for comes back here.
-    web->add_WebMessageReceived(
-        handler<ICoreWebView2WebMessageReceivedEventHandler>(
-            std::function<void(ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs*)>(
-                [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) {
-                    if (!alive(this)) return;
-                    LPWSTR text = nullptr;
-                    if (SUCCEEDED(args->TryGetWebMessageAsString(&text)) && text) {
-                        runInternalAction(text);
-                        CoTaskMemFree(text);
-                    }
-                }))
-            .Get(),
-        &token);
-
-    // The page has the keys, so the app's own shortcuts are taken before the
-    // page sees them: Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Tab and the rest.
-    ComPtr<ICoreWebView2Controller> controller = tab->controller;
-    controller->add_AcceleratorKeyPressed(
-        handler<ICoreWebView2AcceleratorKeyPressedEventHandler>(
-            std::function<void(ICoreWebView2Controller*, ICoreWebView2AcceleratorKeyPressedEventArgs*)>(
-                [this, tab](ICoreWebView2Controller*, ICoreWebView2AcceleratorKeyPressedEventArgs* args) {
-                    if (!alive(this)) return;
-                    COREWEBVIEW2_KEY_EVENT_KIND kind;
-                    args->get_KeyEventKind(&kind);
-                    if (kind != COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN &&
-                        kind != COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN) {
-                        return;
-                    }
-                    UINT vk = 0;
-                    args->get_VirtualKey(&vk);
-                    // The page keeps Tab, Escape, the arrows and the rest.
-                    bool control = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-                    bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-                    bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
-                    if (control && (vk == 'L' || vk == 'T' || vk == 'W' || vk == 'R' || vk == 'D' ||
-                                    vk == 'H' || vk == 'J' || vk == ',' || vk == VK_TAB || vk == VK_PRIOR ||
-                                    vk == VK_NEXT || vk == 'N' || vk == 'Q' || vk == 'E' ||
-                                    (vk >= '1' && vk <= '9'))) {
-                        args->put_Handled(TRUE);
-                        // Out of the page's callback: changing the tab in here
-                        // would tear down the controller that is calling.
-                        PostMessageW(hwnd_, WM_APP + 2, (WPARAM)vk,
-                                     (shift ? 1 : 0) | (alt ? 2 : 0));
-                    }
-                }))
-            .Get(),
-        &token);
-
-    attach(tab);
-
-    if (tab->isInternal()) {
-        tab->webview->NavigateToString(internalHTML(tab->internal).c_str());
-        return;
-    }
-
-    // Before the page loads: the stylesheet that hides the ad slots, and
-    // YouTube's own ad schedule taken out of its data.
-    std::wstring css = shield::styleFor(tab->pageHost);
-    if (!css.empty()) {
-        std::wstring script = L"(function(){var s=document.createElement('style');s.textContent=" +
-                              wv2::jsString(css) +
-                              L";(document.head||document.documentElement).appendChild(s);})();";
-        tab->webview->AddScriptToExecuteOnDocumentCreated(script.c_str(), nullptr);
-    }
-    std::wstring youtube = shield::youtubeScript(tab->pageHost);
-    if (!youtube.empty()) {
-        tab->webview->AddScriptToExecuteOnDocumentCreated(youtube.c_str(), nullptr);
-    }
-    if (!tab->url.empty()) tab->webview->Navigate(tab->url.c_str());
-}
-
 // ---- what a page says ----
 
 void BrowserWindow::pageTitleChanged(Tab* tab, const std::wstring& title) {
@@ -541,8 +241,8 @@ void BrowserWindow::navigate(const std::wstring& url) {
         tab->internal = internalPath(url);
         tab->url.clear();
         tab->title = internalTitle(tab->internal);
-        if (tab->webview) {
-            tab->webview->NavigateToString(internalHTML(tab->internal).c_str());
+        if (engine::has(tab)) {
+            engine::loadHTML(tab, internalHTML(tab->internal), internalURL(tab->internal));
         } else {
             makeWebView(tab);
         }
@@ -555,39 +255,39 @@ void BrowserWindow::navigate(const std::wstring& url) {
     tab->url = url;
     tab->title.clear();
     tab->pageHost = address::host(url);
-    if (!tab->controller) {
+    if (!engine::has(tab)) {
         makeWebView(tab);
-    } else if (tab->webview) {
-        tab->webview->Navigate(url.c_str());
+    } else {
+        engine::navigate(tab, url);
     }
     updateTitle();
     relayout();
 }
 
 void BrowserWindow::goBack() {
-    if (Tab* tab = active(); tab && tab->webview) tab->webview->GoBack();
+    if (Tab* tab = active(); tab && engine::has(tab)) engine::goBack(tab);
 }
 
 void BrowserWindow::goForward() {
-    if (Tab* tab = active(); tab && tab->webview) tab->webview->GoForward();
+    if (Tab* tab = active(); tab && engine::has(tab)) engine::goForward(tab);
 }
 
 void BrowserWindow::reload() {
     Tab* tab = active();
     if (!tab) return;
     if (tab->isInternal()) {
-        if (tab->webview) tab->webview->NavigateToString(internalHTML(tab->internal).c_str());
+        if (engine::has(tab)) engine::loadHTML(tab, internalHTML(tab->internal), internalURL(tab->internal));
         return;
     }
-    if (!tab->webview) {
+    if (!engine::has(tab)) {
         makeWebView(tab);
         return;
     }
-    tab->webview->Reload();
+    engine::reload(tab);
 }
 
 void BrowserWindow::stop() {
-    if (Tab* tab = active(); tab && tab->webview) tab->webview->Stop();
+    if (Tab* tab = active(); tab && engine::has(tab)) engine::stop(tab);
 }
 
 // ---- the field ----
@@ -757,12 +457,7 @@ void BrowserWindow::muteActive() {
     Tab* tab = active();
     if (!tab) return;
     tab->muted = !tab->muted;
-    if (tab->webview) {
-        ComPtr<ICoreWebView2_8> web8;
-        if (SUCCEEDED(tab->webview.As(&web8)) && web8) {
-            web8->put_IsMuted(tab->muted ? TRUE : FALSE);
-        }
-    }
+    if (engine::has(tab)) engine::setMuted(tab, tab->muted);
     redraw();
 }
 
@@ -803,7 +498,7 @@ void BrowserWindow::writeSession() {
 // ---- the field's room ----
 
 // The field and its suggestions are the window's own painting; the page is
-// WebView2's own surface, which Windows composites above everything the window
+// CEF's child window, which Windows composites above everything the window
 // draws, and which neither a region nor a window of the app's own can be made
 // to cover. So while the field is up, the page steps down below it (see
 // layout()), and comes back up when the field goes.

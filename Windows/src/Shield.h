@@ -1,10 +1,10 @@
 // The ad blocker. No settings, no counter, no shield icon going green — it is
 // simply true that the page is lighter.
 //
-// It is enforced at the network level, before anything is rendered: WebView2's
-// WebResourceRequested, which is answered before the request leaves the
-// browser, plus a stylesheet put into each page at document start so the empty
-// boxes an ad leaves behind never draw.
+// It is enforced at the network level, before anything is rendered: CEF's
+// resource-request hook, which cancels a request before it leaves the browser,
+// plus a stylesheet put into each page at document start so the empty boxes an
+// ad leaves behind never draw.
 #pragma once
 
 #include <windows.h>
