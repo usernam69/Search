@@ -58,7 +58,7 @@ void ensureEnvironment(Ready done) {
     if (g_started) return;
     g_started = true;
 
-    // The profile lives in the app's own folder, as WebKit's does on the Mac.
+    // The profile lives in the app's own folder.
     auto options = Make<CoreWebView2EnvironmentOptions>();
     // Nothing but the app's own pages and the sites you ask for: no
     // Microsoft telemetry from the browser itself.

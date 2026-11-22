@@ -1,6 +1,5 @@
-// The app's colours and measurements: Design.swift's own values, so the
-// Windows build looks like the same app as the Mac one. Every colour is a
-// light/dark pair, resolved once from the system's setting.
+// The app's colours and measurements. Every colour is a light/dark pair,
+// resolved once from the system's setting.
 #pragma once
 
 #include <windows.h>
@@ -24,12 +23,12 @@ struct Colour {
     }
 };
 
-// Palette's pairs, by name, in the order Design.swift lists them.
+// The palette's pairs, by name.
 struct Palette {
     Colour ground, ink, muted, faint, hairline, wash, pinLive, hover, frame;
     Colour sideWash, sideHover, sideTile, sidePinLive;
     Colour safe, unsafe;
-    // Not on the Mac: the page's card in a dark window sits a step above the
+    // The page's card in a dark window sits a step above the
     // frame, and the address field needs a fill of its own.
     Colour card, field, fieldStroke, popup, shadow;
 
@@ -60,7 +59,7 @@ struct Palette {
     }
 };
 
-// The Mac's Metrics, in points.
+// The metrics, in points.
 namespace metrics {
 constexpr int strip = 52;
 constexpr int cardGap = 8;

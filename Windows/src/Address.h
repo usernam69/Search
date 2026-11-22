@@ -3,10 +3,9 @@
 // loud, because the alternative is a browser that silently does something else
 // with your keystrokes.
 //
-// The rules are Address.swift's, on the Mac, rule for rule: what counts as a
-// host, when https is put in front and when http is (this machine, the local
-// network), what an email address is not, and how an address is shown back to
-// you for editing.
+// The rules: what counts as a host, when https is put in front and when http
+// is (this machine, the local network), what an email address is not, and how
+// an address is shown back to you for editing.
 #pragma once
 
 #include <string>
@@ -57,7 +56,7 @@ std::wstring pretty(const std::wstring& url);
 // The host of an address, for the site card and Shield's per-site switch.
 std::wstring host(const std::wstring& url);
 
-// A Windows path typed into the field, as /Users/… and ~/… are on the Mac.
+// A Windows path typed into the field.
 std::optional<std::wstring> fileFrom(const std::wstring& typed);
 
 // A file: address for a path on this PC.

@@ -5,7 +5,7 @@
 
 Theme g_theme;
 
-// Sizes are given in points, as the Mac gives its own; at 100% a point is a
+// Sizes are given in points; at 100% a point is a
 // pixel, and at 150% a point is one and a half. Fonts are made in pixels
 // rather than points so that GDI+ doesn't apply the screen's DPI a second
 // time on top of that.
@@ -22,7 +22,7 @@ void Theme::build(double scaleFactor, bool isDark) {
     palette = Palette::resolve(isDark);
     destroy();
 
-    // Mac's sideTitle is 12.5 points, 14 when the rows are roomy.
+    // A row's title is 12.5 points, 14 when the rows are roomy.
     title = makeFont(L"Segoe UI Variable Text", 12.5, scale, Gdiplus::FontStyleRegular);
     titleRoomy = makeFont(L"Segoe UI Variable Text", 14, scale, Gdiplus::FontStyleRegular);
     field = makeFont(L"Segoe UI Variable Text", 13.5, scale, Gdiplus::FontStyleRegular);

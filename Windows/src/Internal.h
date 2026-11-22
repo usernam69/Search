@@ -1,6 +1,6 @@
 // The app's own pages: New Tab, Settings, History, Bookmarks, Downloads.
 //
-// They are real pages in a tab, as on the Mac: something you can leave open,
+// They are real pages in a tab: something you can leave open,
 // come back to with Ctrl+Tab and close with Ctrl+W like any other. Written as
 // HTML here so they scroll and can be searched with Ctrl+F, in the app's own
 // colours.

@@ -17,7 +17,7 @@
 
 using namespace Microsoft::WRL;
 
-// The engines, with the same templates as Engine.swift.
+// The engines and their templates.
 static const std::vector<Engine> kEngines = {
     {L"google", L"Google", L"https://www.google.com/search?q=%s"},
     {L"duckduckgo", L"DuckDuckGo", L"https://duckduckgo.com/?q=%s"},
@@ -127,7 +127,7 @@ void setCustomEngineTemplate(const std::wstring& text) { store::setSetting(L"sea
 // ---- the field's one job ----
 
 static std::wstring percentEncode(const std::wstring& text) {
-    // Only what a query can't carry: the Mac's unreserved set.
+    // Only what a query can't carry: the unreserved set.
     static const wchar_t* hex = L"0123456789ABCDEF";
     std::wstring out;
     for (wchar_t c : text) {
@@ -168,7 +168,7 @@ std::wstring resolve(const std::wstring& typed) {
     std::wstring text = address::trim(typed);
     if (text.empty()) return L"";
 
-    // The app's own pages, by name, as on the Mac.
+    // The app's own pages, by name.
     std::wstring low = address::lower(text);
     if (low == L"settings" || low == L"search://settings") return internalURL(L"settings");
     if (low == L"history" || low == L"search://history") return internalURL(L"history");
@@ -179,7 +179,7 @@ std::wstring resolve(const std::wstring& typed) {
     // A file on this PC.
     if (auto path = address::fileFrom(text)) return address::fileURL(*path);
 
-    // A place, by Address.swift's rules.
+    // A place, by the field's own rules.
     if (auto url = address::url(text)) {
         if (auto fixed = address::reachable(*url)) return *fixed;
         return *url;

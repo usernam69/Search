@@ -113,7 +113,7 @@ static void newWindowNow(bool restore) {
 void newWindow() { newWindowNow(false); }
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
-    // One copy at a time, as on the Mac: a second launch brings the first
+    // One copy at a time: a second launch brings the first
     // forward rather than opening a second window.
     HANDLE one = CreateMutexW(nullptr, TRUE, L"Search.Browser.Single");
     if (one && GetLastError() == ERROR_ALREADY_EXISTS) {

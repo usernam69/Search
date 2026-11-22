@@ -84,7 +84,7 @@ void BrowserWindow::layout() {
     // The square that opens a new page, after the last row.
     lay_.newTab = RectF((REAL)inset, (REAL)(y + g_theme.px(2)), (REAL)rowH, (REAL)rowH);
 
-    // The field, over the page when it is up: the Mac's own, in the middle of
+    // The field, over the page when it is up: in the middle of
     // the window's top, as wide as 560 points.
     double fieldW = std::min((double)g_theme.px(metrics::fieldWidth), width_ - column - g_theme.px(80));
     double fieldH = g_theme.px(38);
